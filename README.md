@@ -1,11 +1,14 @@
 # Bobby Fighter
 
+### ▶ [Play it](https://tbatch92.github.io/bobby-fighter/)
+
 A Street Fighter–style fighting game about cats, in the browser. Play as **Bobby** — white,
 dark tabby patches over one eye and one ear, ringed tail — and fight your way through five
 increasingly unreasonable challengers.
 
 There are no image assets in this project. Every cat, every stage and every sound is generated
-in code.
+in code. The [cat lab](https://tbatch92.github.io/bobby-fighter/lab.html) shows what that means:
+every fighter, in every pose, drawn from one skeleton and a palette.
 
 ```bash
 npm install
@@ -100,6 +103,9 @@ npm run typecheck
 `http://localhost:5173/lab.html` is the **cat lab** — every cat parked in every important pose at
 a readable size. Tuning a procedural character by playing the game is hopeless, because the
 interesting frames go by in a sixth of a second.
+
+Pushing to `main` typechecks, tests and deploys to GitHub Pages via
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). A failing test blocks the deploy.
 
 `F1` in-game draws hitboxes (red), hurtboxes (blue), pushboxes (green) and the current move's
 frame counter. In dev builds `window.bobby` exposes the running game for poking at from the
