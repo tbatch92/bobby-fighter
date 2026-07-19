@@ -1,4 +1,3 @@
-import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 
 export default defineConfig(({ command }) => ({
@@ -9,11 +8,13 @@ export default defineConfig(({ command }) => ({
   build: {
     target: 'es2022',
     rollupOptions: {
+      // Paths are resolved relative to the project root, which keeps this config
+      // free of any Node imports and therefore of @types/node.
       input: {
+        main: 'index.html',
         // The cat lab ships alongside the game: it's the clearest illustration of
         // what "the characters are drawn in code" actually means.
-        main: resolve(import.meta.dirname, 'index.html'),
-        lab: resolve(import.meta.dirname, 'lab.html'),
+        lab: 'lab.html',
       },
     },
   },
