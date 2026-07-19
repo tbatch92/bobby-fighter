@@ -1,0 +1,7 @@
+node_modules
+dist
+.DS_Store
+*.local
+
+# Local machine state, not project config
+.claude/settings.local.json
