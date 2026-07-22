@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bobby Fighter — stage lab</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        background: radial-gradient(ellipse at 50% 0%, #241d1a 0%, #0b0908 70%);
+        color: #cbbfae;
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      }
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: baseline;
+        gap: 18px;
+        flex-wrap: wrap;
+        padding: 16px 22px;
+        background: linear-gradient(#0b0908ee, #0b0908cc);
+        border-bottom: 1px solid #2c2622;
+        backdrop-filter: blur(6px);
+      }
+      h1 { margin: 0; font-size: 18px; color: #ffd34d; letter-spacing: 0.04em; }
+      header .sub { font-size: 12px; color: #7d7060; }
+      header label { font-size: 12px; color: #a08a7c; margin-left: auto; cursor: pointer; user-select: none; }
+      main {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+        gap: 20px;
+        padding: 20px 22px 60px;
+      }
+      figure {
+        margin: 0;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #14100f;
+        box-shadow: 0 12px 34px -14px #000, 0 0 0 1px #2c2622;
+      }
+      .frame { position: relative; }
+      canvas { display: block; width: 100%; height: auto; background: #000; }
+      figcaption {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        padding: 9px 14px 11px;
+      }
+      figcaption b { color: #f6ecd6; font-size: 15px; font-weight: 700; letter-spacing: 0.03em; }
+      figcaption span { color: #8d8172; font-size: 12px; }
+      figcaption .id { margin-left: auto; color: #5f564d; font-size: 11px; }
+      .opp { position: absolute; top: 10px; left: 12px;
+        font-size: 11px; letter-spacing: 0.08em; color: #e9d9bd;
+        background: #0009; padding: 3px 8px; border-radius: 5px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>STAGE LAB</h1>
+      <span class="sub">every location, panning slowly so the full width and parallax are visible</span>
+      <label><input type="checkbox" id="fighters" checked /> show fighters for scale</label>
+    </header>
+    <main id="grid"></main>
+    <script type="module" src="/src/stagelab.ts"></script>
+  </body>
+</html>

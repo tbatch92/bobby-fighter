@@ -8,7 +8,9 @@ increasingly unreasonable challengers.
 
 There are no image assets in this project. Every cat, every stage and every sound is generated
 in code. The [cat lab](https://tbatch92.github.io/bobby-fighter/lab.html) shows what that means:
-every fighter, in every pose, drawn from one skeleton and a palette.
+every fighter, in every pose, drawn from one skeleton and a palette. The
+[stage lab](https://tbatch92.github.io/bobby-fighter/stages.html) does the same for the six
+locations, panning each across its full width.
 
 ```bash
 npm install
@@ -115,7 +117,9 @@ npm run typecheck
 
 `http://localhost:5173/lab.html` is the **cat lab** — every cat parked in every important pose at
 a readable size. Tuning a procedural character by playing the game is hopeless, because the
-interesting frames go by in a sixth of a second.
+interesting frames go by in a sixth of a second. `http://localhost:5173/stages.html` is the
+**stage lab**, the same idea for backgrounds: all six locations side by side, each panning across
+its full width so the parallax and the parts off-screen at neutral are both visible.
 
 Pushing to `main` typechecks, tests and deploys to GitHub Pages via
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). A failing test blocks the deploy.

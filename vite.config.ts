@@ -12,9 +12,12 @@ export default defineConfig(({ command }) => ({
       // free of any Node imports and therefore of @types/node.
       input: {
         main: 'index.html',
-        // The cat lab ships alongside the game: it's the clearest illustration of
-        // what "the characters are drawn in code" actually means.
+        // The labs ship alongside the game: the clearest illustration of what
+        // "the characters and stages are drawn in code" actually means. The cat
+        // lab shows every fighter in every pose; the stage lab shows every
+        // location panning across its full width.
         lab: 'lab.html',
+        stages: 'stages.html',
       },
     },
   },
