@@ -19,7 +19,7 @@ export interface StageDef {
 
 export const STAGES: StageDef[] = [
   { id: 'kitchen', name: 'The Kitchen Door', where: 'home turf' },
-  { id: 'garden', name: 'The Back Garden', where: 'past the flap' },
+  { id: 'garden', name: 'The Back Yard', where: 'sun on the setts' },
   { id: 'livingroom', name: 'The Good Sofa', where: 'strictly off-limits' },
   { id: 'rooftop', name: 'The Rooftops', where: 'after midnight' },
   { id: 'alley', name: 'Bin Alley', where: 'behind the chip shop' },
@@ -37,6 +37,31 @@ function layer(
 ): void {
   ctx.save()
   ctx.translate(cam.x * (1 - factor), 0)
+  draw(ctx)
+  ctx.restore()
+}
+
+/**
+ * A parallax layer anchored to the middle of the stage.
+ *
+ * `layer()` is fine for things that repeat across the whole width — walls, fences,
+ * skylines — because it doesn't matter where they land. It is the wrong tool for a
+ * single landmark: at a parallax factor of 0.6 the layer is displaced by 40% of the
+ * camera position, so a door authored at x=640 shows up hundreds of pixels away and
+ * the whole composition slides apart.
+ *
+ * This variant cancels that displacement at the stage centre, so a landmark written
+ * at `STAGE_W / 2` actually appears there, while still parallaxing as the camera
+ * travels either side of it.
+ */
+function anchoredLayer(
+  ctx: CanvasRenderingContext2D,
+  cam: Camera,
+  factor: number,
+  draw: (ctx: CanvasRenderingContext2D) => void,
+): void {
+  ctx.save()
+  ctx.translate((cam.x - STAGE_W / 2) * (1 - factor), 0)
   draw(ctx)
   ctx.restore()
 }
@@ -307,80 +332,496 @@ function roundRect(
 }
 
 // --- garden ----------------------------------------------------------------
+// Bobby's actual back yard: a walled courtyard, not a lawn. White-painted brick,
+// a raised bed behind a low retaining wall, brick steps up to a plank gate,
+// bamboo on one side, and a path of granite setts running through pale gravel.
 
-function garden(ctx: CanvasRenderingContext2D, cam: Camera, t: number): void {
-  const sky = ctx.createLinearGradient(0, -300, 0, GROUND_Y)
-  sky.addColorStop(0, '#7fb8d8')
-  sky.addColorStop(0.55, '#bcd9e0')
-  sky.addColorStop(1, '#e6e2c4')
-  backdrop(ctx, sky)
+/**
+ * The scatter in this stage — gravel, bamboo canes, lavender, moss — is placed by
+ * hashing an index rather than by calling `Math.random()`, so it never shimmers
+ * between frames.
+ *
+ * Always shift those hashes with `>>>`, never `>>`. A signed shift reinterprets a
+ * hash above 2^31 as negative, `% n` then returns a negative number, and handing
+ * that to `ctx.ellipse` as a radius throws — which kills the render loop and
+ * leaves the game showing a blank frame.
+ */
 
-  layer(ctx, cam, 0.2, (c) => {
-    c.fillStyle = withAlpha('#ffffff', 0.5)
-    for (let i = 0; i < 5; i++) {
-      const x = 120 + i * 340
-      const y = 60 + ((i * 47) % 70)
-      c.beginPath()
-      c.ellipse(x + Math.sin(t * 0.1 + i) * 14, y, 92, 30, 0, 0, TAU)
-      c.ellipse(x + 60, y - 16, 62, 26, 0, 0, TAU)
-      c.fill()
-    }
-    // Distant treeline
-    c.fillStyle = '#6d8f63'
-    c.beginPath()
-    c.moveTo(-600, GROUND_Y)
-    for (let x = -600; x < STAGE_W + 600; x += 70) {
-      c.lineTo(x, 250 + Math.sin(x * 0.012) * 44 + Math.sin(x * 0.05) * 12)
-    }
-    c.lineTo(STAGE_W + 600, GROUND_Y)
-    c.closePath()
-    c.fill()
-  })
+/**
+ * Gravel is hundreds of little stones, which is too many to redraw every frame.
+ * It's also completely static, so it gets rendered once into an offscreen tile
+ * and blitted thereafter.
+ */
+let gravelTile: HTMLCanvasElement | null = null
 
-  layer(ctx, cam, 0.6, (c) => {
-    // Fence
-    c.fillStyle = '#9c7b52'
-    c.fillRect(-600, 300, STAGE_W + 1200, 168)
-    c.fillStyle = '#8a6c47'
-    for (let x = -600; x < STAGE_W + 600; x += 44) c.fillRect(x, 300, 5, 168)
-    c.fillStyle = '#b08a5c'
-    c.fillRect(-600, 300, STAGE_W + 1200, 12)
-    c.fillRect(-600, 372, STAGE_W + 1200, 10)
+function getGravelTile(): HTMLCanvasElement {
+  if (gravelTile) return gravelTile
+  const size = 240
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const g = c.getContext('2d')!
 
-    // Bushes along the base of the fence
-    c.fillStyle = '#5f8a4e'
-    for (let x = -500; x < STAGE_W + 500; x += 180) {
-      c.beginPath()
-      c.ellipse(x, 462, 106, 62, 0, 0, TAU)
-      c.fill()
-    }
-    c.fillStyle = '#6f9c5b'
-    for (let x = -420; x < STAGE_W + 500; x += 180) {
-      c.beginPath()
-      c.ellipse(x, 470, 82, 46, 0, 0, TAU)
-      c.fill()
-    }
-  })
+  g.fillStyle = '#b9b4ab'
+  g.fillRect(0, 0, size, size)
 
-  const grass = ctx.createLinearGradient(0, GROUND_Y, 0, GROUND_Y + 140)
-  grass.addColorStop(0, '#79a85a')
-  grass.addColorStop(1, '#4d6c38')
-  ctx.fillStyle = grass
-  ctx.fillRect(-600, GROUND_Y, STAGE_W + 1200, FLOOR_H)
-  // Tufts of grass rather than single blades — one stroke reads as a stray mark.
-  ctx.strokeStyle = withAlpha('#5f7f43', 0.55)
-  ctx.lineWidth = 2
-  for (let i = 0; i < 220; i++) {
-    const x = -600 + ((i * 137) % (STAGE_W + 1200))
-    const y = GROUND_Y + 10 + ((i * 53) % 118)
-    const h = 5 + ((i * 7) % 4)
-    for (let b = -1; b <= 1; b++) {
+  // A fixed hash keeps the pattern stable, and stops the tile edges repeating
+  // too obviously by varying stone size as well as position.
+  const tones = ['#e8e4dc', '#d3cec4', '#c2bcb2', '#a8a299', '#f2efe8']
+  for (let i = 0; i < 900; i++) {
+    const h = (i * 2654435761) >>> 0
+    const x = (h % size) + ((h >>> 9) % 3)
+    const y = ((h >>> 7) % size) + ((h >>> 17) % 3)
+    const r = 2.1 + ((h >>> 13) % 26) / 9
+    g.fillStyle = tones[(h >>> 5) % tones.length]!
+    g.beginPath()
+    g.ellipse(x, y, r, r * (0.62 + ((h >>> 21) % 30) / 80), (h % 31) / 5, 0, TAU)
+    g.fill()
+  }
+  gravelTile = c
+  return c
+}
+
+function drawGravel(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
+  const pattern = ctx.createPattern(getGravelTile(), 'repeat')
+  if (pattern) {
+    ctx.fillStyle = pattern
+    ctx.fillRect(x, y, w, h)
+  }
+  // Gravel further away catches less light, which stops the tile reading as flat.
+  const shade = ctx.createLinearGradient(0, y, 0, y + h)
+  shade.addColorStop(0, withAlpha('#4a453d', 0.34))
+  shade.addColorStop(0.45, withAlpha('#4a453d', 0.05))
+  shade.addColorStop(1, withAlpha('#4a453d', 0))
+  ctx.fillStyle = shade
+  ctx.fillRect(x, y, w, h)
+}
+
+/** White-painted brickwork: courses visible through the paint, not drawn on it. */
+function paintedBrick(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  base: string,
+  line: string,
+  courseH = 22,
+): void {
+  ctx.fillStyle = base
+  ctx.fillRect(x, y, w, h)
+  ctx.strokeStyle = line
+  ctx.lineWidth = 1.5
+  let row = 0
+  for (let cy = y; cy < y + h; cy += courseH, row++) {
+    ctx.beginPath()
+    ctx.moveTo(x, cy)
+    ctx.lineTo(x + w, cy)
+    ctx.stroke()
+    for (let cx = x + (row % 2 ? 34 : 0); cx < x + w; cx += 68) {
       ctx.beginPath()
-      ctx.moveTo(x + b * 3, y)
-      ctx.quadraticCurveTo(x + b * 4, y - h * 0.6, x + b * 6, y - h)
+      ctx.moveTo(cx, cy)
+      ctx.lineTo(cx, Math.min(cy + courseH, y + h))
       ctx.stroke()
     }
   }
+}
+
+/** A clump of bamboo — tall segmented canes with narrow drooping leaves. */
+function bamboo(ctx: CanvasRenderingContext2D, cx: number, baseY: number, height: number, t: number): void {
+  for (let i = 0; i < 16; i++) {
+    const h = (i * 2654435761) >>> 0
+    const off = ((h % 200) - 100) * 1.6
+    const len = height * (0.62 + ((h >>> 8) % 40) / 100)
+    const lean = (((h >>> 4) % 100) - 50) / 260 + Math.sin(t * 0.5 + i) * 0.012
+    const topX = cx + off + lean * len
+    const topY = baseY - len
+
+    ctx.strokeStyle = i % 3 === 0 ? '#6f8f4a' : '#55743a'
+    ctx.lineWidth = 4 + ((h >>> 11) % 3)
+    ctx.beginPath()
+    ctx.moveTo(cx + off, baseY)
+    ctx.quadraticCurveTo(cx + off + lean * len * 0.4, baseY - len * 0.55, topX, topY)
+    ctx.stroke()
+
+    // Leaves, densest towards the top. Three per node rather than one, otherwise
+    // the clump reads as bare green sticks instead of foliage.
+    for (let l = 0; l < 9; l++) {
+      const lt = 0.28 + l * 0.082
+      const lx = cx + off + lean * len * lt * lt
+      const ly = baseY - len * lt
+      const sway = Math.sin(t * 0.7 + i + l) * 0.06
+      for (let k = 0; k < 3; k++) {
+        const spread = ((h >>> (l + k)) % 12) / 20
+        const dir = (k === 1 ? -1 : 1) * (0.45 + spread + k * 0.28)
+        ctx.fillStyle = (i + l + k) % 3 ? '#3d6130' : '#548339'
+        ctx.save()
+        ctx.translate(lx, ly)
+        ctx.rotate(dir + sway)
+        ctx.beginPath()
+        ctx.ellipse(17, 0, 19 - k * 2, 3.6, 0, 0, TAU)
+        ctx.fill()
+        ctx.restore()
+      }
+    }
+  }
+}
+
+/** A leggy wall shrub with a few thin upright stems. */
+function wallShrub(ctx: CanvasRenderingContext2D, cx: number, baseY: number, h: number, t: number): void {
+  ctx.strokeStyle = '#6b5a44'
+  for (let i = 0; i < 6; i++) {
+    const hash = (i * 40503 * 2654435761) >>> 0
+    const off = ((hash % 100) - 50) * 1.9
+    const len = h * (0.55 + ((hash >>> 9) % 45) / 100)
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.moveTo(cx + off * 0.3, baseY)
+    ctx.quadraticCurveTo(cx + off, baseY - len * 0.6, cx + off * 1.5, baseY - len)
+    ctx.stroke()
+
+    for (let l = 0; l < 9; l++) {
+      const lt = 0.2 + l * 0.09
+      const lx = cx + off * (0.3 + 1.2 * lt * lt)
+      const ly = baseY - len * lt
+      ctx.fillStyle = l % 3 ? '#4f7a3e' : '#3f6531'
+      ctx.save()
+      ctx.translate(lx, ly)
+      ctx.rotate(((l % 2 ? 1 : -1) * 0.9) + Math.sin(t * 0.6 + l) * 0.08)
+      ctx.beginPath()
+      ctx.ellipse(9, 0, 10, 5, 0, 0, TAU)
+      ctx.fill()
+      ctx.restore()
+    }
+  }
+}
+
+/** Lavender: grey-green stems topped with a purple spike. */
+function lavender(ctx: CanvasRenderingContext2D, cx: number, baseY: number, count: number): void {
+  for (let i = 0; i < count; i++) {
+    const hash = (i * 2246822519) >>> 0
+    const x = cx + ((hash % 220) - 110)
+    const len = 44 + ((hash >>> 8) % 28)
+    const lean = (((hash >>> 3) % 100) - 50) / 300
+    ctx.strokeStyle = '#7d8a6a'
+    ctx.lineWidth = 2.4
+    ctx.beginPath()
+    ctx.moveTo(x, baseY)
+    ctx.quadraticCurveTo(x + lean * len, baseY - len * 0.6, x + lean * len * 2, baseY - len)
+    ctx.stroke()
+
+    const tipX = x + lean * len * 2
+    const tipY = baseY - len
+    ctx.fillStyle = i % 3 === 0 ? '#8f7ac4' : '#7462ab'
+    for (let b = 0; b < 5; b++) {
+      ctx.beginPath()
+      ctx.ellipse(tipX + lean * b * 2, tipY + b * 5.5, 4.2, 3.4, 0, 0, TAU)
+      ctx.fill()
+    }
+  }
+}
+
+function garden(ctx: CanvasRenderingContext2D, cam: Camera, t: number): void {
+  // Vertical budget: the camera only ever shows roughly y = -120..550, and barely
+  // 70px of floor below the ground line. Everything worth seeing lives in there.
+  const BED = 396 // top of the retaining wall, and the level the raised bed sits at
+
+  // A courtyard is mostly wall, with a strip of bright sky above it.
+  const sky = ctx.createLinearGradient(0, -300, 0, 60)
+  sky.addColorStop(0, '#9dbdd4')
+  sky.addColorStop(1, '#dfe7e6')
+  backdrop(ctx, sky)
+
+  // --- back wall ---------------------------------------------------------
+  layer(ctx, cam, 0.32, (c) => {
+    paintedBrick(c, -800, 20, STAGE_W + 1600, GROUND_Y + 40, '#e9e6df', '#d6d2c9', 26)
+    const foot = c.createLinearGradient(0, BED - 190, 0, BED)
+    foot.addColorStop(0, withAlpha('#8d8478', 0))
+    foot.addColorStop(1, withAlpha('#8d8478', 0.26))
+    c.fillStyle = foot
+    c.fillRect(-800, BED - 190, STAGE_W + 1600, 190)
+  })
+
+  // --- raised bed: gate, steps, planting ---------------------------------
+  anchoredLayer(ctx, cam, 0.6, (c) => {
+    // The plank gate, centred on the stage.
+    const dw = 176
+    const dx = STAGE_W / 2 - dw / 2
+    const dTop = 132
+    const dBottom = 356
+
+    c.fillStyle = '#cfc9bd'
+    c.fillRect(dx - 22, dTop - 18, dw + 44, dBottom - dTop + 18)
+    // A dark reveal around the gate. Without it the gate is the same value as the
+    // wall behind and the focal point of the stage simply disappears.
+    c.fillStyle = '#2b2823'
+    c.fillRect(dx - 9, dTop - 7, dw + 18, dBottom - dTop + 7)
+
+    c.fillStyle = '#c3beaf'
+    c.fillRect(dx, dTop, dw, dBottom - dTop)
+    const lit = c.createLinearGradient(dx, 0, dx + dw, 0)
+    lit.addColorStop(0, withAlpha('#ffffff', 0.26))
+    lit.addColorStop(1, withAlpha('#5d5749', 0.28))
+    c.fillStyle = lit
+    c.fillRect(dx, dTop, dw, dBottom - dTop)
+    c.strokeStyle = '#a8a294'
+    c.lineWidth = 2
+    for (let i = 1; i < 6; i++) {
+      c.beginPath()
+      c.moveTo(dx + (dw / 6) * i, dTop)
+      c.lineTo(dx + (dw / 6) * i, dBottom)
+      c.stroke()
+    }
+    // Z-brace: two rails and a diagonal, the way a garden gate is actually built.
+    c.fillStyle = '#cdc8b9'
+    c.strokeStyle = '#8f8a7c'
+    const rail = (ry: number): void => {
+      c.fillRect(dx, ry, dw, 16)
+      c.strokeRect(dx, ry, dw, 16)
+    }
+    c.save()
+    c.beginPath()
+    c.rect(dx, dTop, dw, dBottom - dTop)
+    c.clip()
+    const span = dBottom - dTop - 80
+    c.translate(dx, dBottom - 40)
+    c.rotate(-Math.atan2(span, dw))
+    c.fillRect(0, 0, Math.hypot(dw, span), 16)
+    c.strokeRect(0, 0, Math.hypot(dw, span), 16)
+    c.restore()
+    rail(dTop + 22)
+    rail(dBottom - 40)
+
+    // Two brick steps down from the gate to the bed.
+    for (let s = 0; s < 2; s++) {
+      const sy = BED - s * 20
+      const inset = s * 22
+      c.fillStyle = '#efece4'
+      c.fillRect(dx - 76 + inset, sy - 20, dw + 152 - inset * 2, 20)
+      c.fillStyle = '#4a3b34'
+      c.fillRect(dx - 76 + inset, sy - 24, dw + 152 - inset * 2, 8)
+    }
+
+    // Bamboo on the right, shrubs and a young tree on the left.
+    bamboo(c, 1120, BED + 20, 340, t)
+    bamboo(c, 1290, BED + 20, 300, t)
+    wallShrub(c, 300, BED + 16, 170, t)
+    wallShrub(c, 150, BED + 16, 140, t)
+
+    c.strokeStyle = '#7a6a52'
+    c.lineWidth = 5
+    c.beginPath()
+    c.moveTo(452, BED + 16)
+    c.quadraticCurveTo(442, BED - 110, 458, BED - 236)
+    c.stroke()
+    c.lineWidth = 2.5
+    for (let b = 0; b < 4; b++) {
+      const by = BED - 96 - b * 42
+      const dir = b % 2 ? 1 : -1
+      c.beginPath()
+      c.moveTo(450, by)
+      c.quadraticCurveTo(450 + dir * 30, by - 12, 450 + dir * 56, by - 34)
+      c.stroke()
+      c.fillStyle = '#4e7a3a'
+      for (let l = 0; l < 4; l++) {
+        c.beginPath()
+        c.ellipse(450 + dir * (12 + l * 12), by - 6 - l * 8, 7, 4, dir * 0.5, 0, TAU)
+        c.fill()
+      }
+    }
+
+    // Ground cover spilling over the retaining wall, and lavender at the left.
+    for (let i = 0; i < 110; i++) {
+      const hash = (i * 2654435761) >>> 0
+      const x = 20 + ((hash % 1400) | 0)
+      if (x > STAGE_W / 2 - 160 && x < STAGE_W / 2 + 160) continue
+      c.fillStyle = i % 4 ? '#5f8a43' : '#7aa356'
+      c.beginPath()
+      c.ellipse(x, BED + 14 - ((hash >>> 9) % 22), 14, 8, 0, 0, TAU)
+      c.fill()
+    }
+    lavender(c, 260, BED + 10, 14)
+
+    // A terracotta pot at the foot of the steps.
+    c.fillStyle = '#b5643f'
+    c.beginPath()
+    c.moveTo(880, BED + 16)
+    c.lineTo(932, BED + 16)
+    c.lineTo(925, BED - 26)
+    c.lineTo(887, BED - 26)
+    c.closePath()
+    c.fill()
+    c.fillStyle = '#c47049'
+    c.fillRect(883, BED - 34, 46, 9)
+  })
+
+  // --- retaining wall ----------------------------------------------------
+  layer(ctx, cam, 0.82, (c) => {
+    paintedBrick(c, -800, BED, STAGE_W + 1600, GROUND_Y - BED, '#f6f3ec', '#d5d0c4', 22)
+    // Red brick coping — the detail that makes it read as a raised bed rather
+    // than as a random white ledge.
+    c.fillStyle = '#a8563a'
+    c.fillRect(-800, BED - 15, STAGE_W + 1600, 17)
+    c.strokeStyle = '#8a4229'
+    c.lineWidth = 1.6
+    for (let x = -800; x < STAGE_W + 800; x += 44) {
+      c.beginPath()
+      c.moveTo(x, BED - 15)
+      c.lineTo(x, BED + 2)
+      c.stroke()
+    }
+    c.fillStyle = withAlpha('#ffffff', 0.24)
+    c.fillRect(-800, BED - 15, STAGE_W + 1600, 4)
+    // Shadow cast by the coping, and grime where the wall meets the ground.
+    c.fillStyle = withAlpha('#6b6357', 0.3)
+    c.fillRect(-800, BED + 2, STAGE_W + 1600, 7)
+    c.fillStyle = withAlpha('#000000', 0.2)
+    c.fillRect(-800, GROUND_Y - 9, STAGE_W + 1600, 9)
+  })
+
+  // --- the floor ---------------------------------------------------------
+  drawGravel(ctx, -800, GROUND_Y, STAGE_W + 1600, FLOOR_H)
+
+  // Setts run down the middle of the yard with gravel either side, so the cats
+  // walk off the paving and onto the stones near the stage edges.
+  const PATH_L = 360
+  const PATH_R = 1140
+  // A strip of gravel sits between the wall and the paving, so the stones are
+  // visible right at the cats' feet rather than only at the stage edges.
+  let rowY = GROUND_Y + 10
+  let rowH = 8
+  for (let row = 0; row < 8 && rowY < GROUND_Y + 96; row++) {
+    const settW = 30 + row * 7
+    const spread = 1 + row * 0.075
+    const left = STAGE_W / 2 - (STAGE_W / 2 - PATH_L) * spread
+    const right = STAGE_W / 2 + (PATH_R - STAGE_W / 2) * spread
+    // The far end of the path is near-black, lightening to pale granite nearby.
+    const tone = Math.min(1, row / 3)
+
+    for (let x = left; x < right; x += settW + 2.5) {
+      const hash = ((row * 73856093) ^ (Math.floor(x) * 19349663)) >>> 0
+      const lightness = tone + ((hash % 26) - 13) / 95
+      const shade = Math.round(38 + Math.max(0, lightness) * 138)
+      ctx.fillStyle = `rgb(${shade}, ${shade}, ${Math.round(shade * 0.97)})`
+      ctx.fillRect(x + (row % 2 ? settW * 0.45 : 0), rowY, Math.min(settW, right - x), rowH)
+    }
+    if (row > 2) {
+      for (let i = 0; i < 3; i++) {
+        const hash = ((row * 2654435761) ^ (i * 40503)) >>> 0
+        if (hash % 3) continue
+        ctx.fillStyle = withAlpha('#7d9a4e', 0.7)
+        ctx.beginPath()
+        ctx.ellipse(left + (hash % (right - left)), rowY + rowH * 0.5, 6, rowH * 0.45, 0, 0, TAU)
+        ctx.fill()
+      }
+    }
+    rowY += rowH
+    rowH *= 1.2
+  }
+
+  // Dappled shade from the tree, thrown across the paving.
+  ctx.save()
+  ctx.globalCompositeOperation = 'multiply'
+  for (let i = 0; i < 12; i++) {
+    const hash = (i * 2654435761) >>> 0
+    ctx.fillStyle = withAlpha('#807d71', 0.28)
+    ctx.beginPath()
+    ctx.ellipse(
+      340 + (hash % 380),
+      GROUND_Y + 16 + ((hash >>> 9) % 56),
+      20 + (hash % 16),
+      8 + (hash % 6),
+      ((hash >>> 3) % 30) / 10,
+      0,
+      TAU,
+    )
+    ctx.fill()
+  }
+  ctx.restore()
+
+  // --- things standing in the yard ---------------------------------------
+  anchoredLayer(ctx, cam, 0.94, (c) => {
+    // The kennel, off on the gravel to one side.
+    const kx = 140
+    const ky = GROUND_Y + 12
+    c.fillStyle = '#f2f0eb'
+    roundRect(c, kx, ky - 74, 116, 74, 6)
+    c.fill()
+    c.strokeStyle = '#c8c4bd'
+    c.lineWidth = 2
+    c.stroke()
+    c.fillStyle = '#2f2b28'
+    c.beginPath()
+    c.ellipse(kx + 58, ky - 4, 25, 36, 0, Math.PI, TAU)
+    c.fill()
+    c.fillStyle = '#d33f3a'
+    c.beginPath()
+    c.moveTo(kx - 12, ky - 72)
+    c.lineTo(kx + 58, ky - 118)
+    c.lineTo(kx + 128, ky - 72)
+    c.closePath()
+    c.fill()
+    c.strokeStyle = '#ab302b'
+    c.lineWidth = 1.5
+    for (let i = 1; i < 5; i++) {
+      c.beginPath()
+      c.moveTo(kx - 12 + i * 13, ky - 72 - i * 9)
+      c.lineTo(kx + 128 - i * 13, ky - 72 - i * 9)
+      c.stroke()
+    }
+
+    // A plastic storage box.
+    const sx = 1160
+    const sy = GROUND_Y + 8
+    c.fillStyle = '#5c625f'
+    roundRect(c, sx, sy - 84, 168, 84, 6)
+    c.fill()
+    c.fillStyle = '#6d736f'
+    roundRect(c, sx - 6, sy - 96, 180, 18, 6)
+    c.fill()
+    c.strokeStyle = '#484d4a'
+    c.lineWidth = 2
+    for (let i = 1; i < 7; i++) {
+      c.beginPath()
+      c.moveTo(sx + i * 23, sy - 74)
+      c.lineTo(sx + i * 23, sy - 8)
+      c.stroke()
+    }
+
+    // The metal bench.
+    const bx = 1348
+    const by = GROUND_Y + 16
+    c.strokeStyle = '#22201f'
+    c.lineWidth = 5
+    c.lineCap = 'round'
+    c.beginPath()
+    c.moveTo(bx, by)
+    c.lineTo(bx + 5, by - 54)
+    c.moveTo(bx + 150, by)
+    c.lineTo(bx + 155, by - 54)
+    c.stroke()
+    c.fillStyle = '#2b2927'
+    c.fillRect(bx - 4, by - 62, 172, 11)
+    c.lineWidth = 5
+    c.beginPath()
+    c.moveTo(bx + 150, by - 56)
+    c.quadraticCurveTo(bx + 200, by - 118, bx + 180, by - 164)
+    c.stroke()
+    c.lineWidth = 2.5
+    for (let i = 0; i < 6; i++) {
+      c.beginPath()
+      c.moveTo(bx + 152 + i * 5, by - 58 - i * 2)
+      c.quadraticCurveTo(bx + 192 + i * 2, by - 110, bx + 174 + i * 3, by - 158)
+      c.stroke()
+    }
+    c.lineCap = 'butt'
+  })
+
+  // Soft daylight from the left, matching the shadow direction on the setts.
+  const sun = ctx.createLinearGradient(0, 0, STAGE_W, GROUND_Y)
+  sun.addColorStop(0, withAlpha('#fff3d2', 0.16))
+  sun.addColorStop(1, withAlpha('#fff3d2', 0))
+  ctx.fillStyle = sun
+  ctx.fillRect(-800, -800, STAGE_W + 1600, GROUND_Y + 800 + FLOOR_H)
 }
 
 // --- living room -----------------------------------------------------------

@@ -80,6 +80,19 @@ Adding a fighter costs one data object in `data/roster.ts`: a palette, some body
 few stat tweaks and one signature special. The twelve normals, the hurtboxes and all the
 animation are generated from shared definitions.
 
+### The stages
+
+Six of them, also drawn in code, as parallax layers over a floor. Two are built from
+photographs of the real places: the **kitchen**, with the cat flap in the back door, and the
+**back yard** — white-painted brick, a raised bed behind a red-brick coping, bamboo, lavender,
+and a path of granite setts running through pale gravel.
+
+Landmarks use `anchoredLayer()` rather than `layer()`. A plain parallax layer is displaced by a
+fraction of the camera position, which is invisible for something that repeats across the whole
+width like a fence, and ruinous for a single door — it lands hundreds of pixels from where it was
+written. `anchoredLayer` cancels that displacement at the stage centre, so a landmark authored at
+`STAGE_W / 2` appears there while still parallaxing as the camera travels.
+
 Attacks are **not** keyframed frame by frame. Each one is described by two poses — a windup and a
 strike — which `render/poses.ts` stretches across whatever startup/active/recovery the move data
 specifies. A 4-frame jab and an 11-frame roundhouse both animate correctly with no extra
